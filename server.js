@@ -13,8 +13,8 @@ app.use(express.json());
 
 // ===== Configuration =====
 // 請設置自己的 Apple 開發者資訊
-const BUNDLE_IDENTIFIER = "org.example.YourAppBundleId";
-const TEAM_IDENTIFIER = "YOUR_TEAM_ID";
+const BUNDLE_IDENTIFIER = "hthsieh.ApptestDemo";
+const TEAM_IDENTIFIER = "7RTU2TSVH9";
 const ALLOW_DEVELOPMENT_ENV = true;
 
 // ===== In-Memory Storage =====
@@ -136,12 +136,16 @@ app.post("/transfer", async (req, res) => {
 
     // Step 3: 驗證 Payload Hash
     console.log("\n📍 Step 3: 驗證 Payload Hash");
-    const payloadJson = `{"amount":${payload.amount},"to":"${payload.to}"}`;
-    const expectedPayloadHash = crypto.createHash("sha256").update(payloadJson).digest("hex");
+    // 1. 將 Base64 還原為原始二進位
+    const payloadData = Buffer.from(payload, 'base64');
+
+    // 2. 計算預期 Hash
+    const expectedPayloadHash = crypto.createHash("sha256").update(payloadData).digest("hex");
+
+    // 3. 與 client_data 裡的 hash 對比
     if (client_data.payload_hash !== expectedPayloadHash) {
-      console.log("❌ Payload hash mismatch");
-      return res.status(400).json({ error: "Data tampering detected" });
-    }
+      return res.status(400).send("Tampering detected!");
+    };
     console.log("✅ Payload hash verified");
 
     // Step 4: 使用 node-app-attest 驗證 Assertion
@@ -165,7 +169,8 @@ app.post("/transfer", async (req, res) => {
     console.log("\n📍 Step 5: 更新計數器");
     attestationRecord.signCount = result.signCount;
 
-    console.log(`✅ Transfer completed! Amount: ${payload.amount}, To: ${payload.to}`);
+    const realPayload = JSON.parse(payloadData.toString('utf8'));
+    console.log(`✅ Transfer completed! Amount: ${realPayload.amount}, To: ${realPayload.to}`);
     res.json({ success: true, message: "Transfer completed successfully" });
 
   } catch (error) {
